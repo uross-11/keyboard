@@ -1,13 +1,15 @@
 import express from "express";
+import path from "path";
+import crypto from "crypto";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { SessionStore } from "./sessionStore.js";
-import crypto from "crypto";
 
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer);
 const sessionStore = new SessionStore();
+const __dirname = path.resolve();
 
 const randomId = () => crypto.randomBytes(8).toString("hex");
 
@@ -24,7 +26,6 @@ io.use((socket, next) => {
     }
   }
   const username = socket.handshake.auth.username;
-  console.log(username);
   if (!username) {
     return next(new Error("invalid username"));
   }
@@ -42,14 +43,16 @@ io.on("connection", (socket) => {
     connected: true,
   });
 
+  console.log(
+    "user connected: ",
+    sessionStore.findSession(socket.sessionID).username
+  );
+
   // emit session details
   socket.emit("session", {
     sessionID: socket.sessionID,
     userID: socket.userID,
   });
-  console.log(`CONNECT ==> ${socket.id}`);
-  // console.log(`CONNECT ==> ${socket.id}`)
-  console.log(sessionStore.findAllSessions());
 
   socket.on("tick", (cb) => {
     socket.emit("red");
@@ -70,12 +73,19 @@ io.on("connection", (socket) => {
       });
       console.log(
         "user disconnected: ",
-        sessionStore.findSession(socket.sessionID)
+        sessionStore.findSession(socket.sessionID).username
       );
     }
   });
 });
 
+app.use("/static", express.static(path.join(__dirname, "public")));
+
+app.get("/", (_, res) => {
+  res.sendFile(__dirname + "/public/index.html");
+});
+
 httpServer.listen(3000, () => {
+  sessionStore.restoreSessions();
   console.log("server listening at http://localhost:3000");
 });
