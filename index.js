@@ -11,6 +11,7 @@ const io = new Server(httpServer);
 const sessionStore = new SessionStore();
 const __dirname = path.resolve();
 
+// TODO: crypto deprecated
 const randomId = () => crypto.randomBytes(8).toString("hex");
 
 io.use((socket, next) => {
