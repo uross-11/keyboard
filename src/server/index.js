@@ -80,10 +80,10 @@ io.on("connection", (socket) => {
   });
 });
 
-app.use("/static", express.static(path.join(__dirname, "public")));
+app.use("/static", express.static(path.join(__dirname, "ui")));
 
 app.get("/", (_, res) => {
-  res.sendFile(__dirname + "/public/index.html");
+  res.sendFile(__dirname + "/ui/index.html");
 });
 
 httpServer.listen(3000, () => {
