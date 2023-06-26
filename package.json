@@ -16,11 +16,10 @@
     "crypto": "^1.0.1",
     "express": "^4.18.2",
     "socket.io": "^4.6.2",
-    "express": "^4.18.2",
-    "vite-express": "*"
+    "socket.io-client": "^4.7.0",
+    "vite-express": "^0.9.1"
   },
   "author": "",
   "license": "ISC",
   "description": ""
 }
-
