@@ -11,15 +11,11 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 const sessionStore = new SessionStore();
 
-const keyboard1 = process.env.KEYBOARD_1;
-const keyboard2 = process.env.KEYBOARD_2;
-const frontend = process.env.FRONTEND;
+const keyboard1 = process.env.KEYBOARD_1_ID;
+const keyboard2 = process.env.KEYBOARD_2_ID;
 
-console.log(keyboard1, keyboard2, frontend);
+// const id = ["red-1", "green-1", "blue-1", "red-2", "green-2", "blue-2"];
 
-const id = ["red-1", "green-1", "blue-1", "red-2", "green-2", "blue-2"];
-
-// crypto deprecated
 const randomId = () => crypto.randomBytes(8).toString("hex");
 
 io.use((socket, next) => {
@@ -47,12 +43,16 @@ io.use((socket, next) => {
 
 io.on("connection", (socket) => {
   sessionStore.saveSession(socket.sessionID, {
+    id: socket.id,
     userID: socket.userID,
     username: socket.username,
     connected: true,
   });
 
-  console.log("user connected: ", sessionStore.findSession(socket.sessionID));
+  console.log(
+    "user connected:",
+    sessionStore.findSession(socket.sessionID).username
+  );
 
   // emit session details
   socket.emit("session", {
@@ -61,14 +61,22 @@ io.on("connection", (socket) => {
   });
 
   socket.on("color", (payload) => {
-    console.log(payload);
-    sessionStore.findSession(socket.sessionID).username;
+    const index = payload.split("-")[1];
+    const color = payload.split("-")[0];
+
+    if (index === "1") {
+      io.to(sessionStore.findSession(keyboard1).id).emit("color", color);
+    }
+
+    if (index === "2") {
+      io.to(sessionStore.findSession(keyboard2).id).emit("color", color);
+    }
   });
 
-  socket.on("tick", (cb) => {
-    socket.emit("red");
-    cb();
-  });
+  // socket.on("tick", (cb) => {
+  //   socket.emit("red");
+  //   cb();
+  // });
 
   socket.on("disconnect", async () => {
     const matchingSockets = await io.in(socket.userID).allSockets();
@@ -78,12 +86,13 @@ io.on("connection", (socket) => {
       socket.broadcast.emit("user disconnected", socket.userID);
       // update the connection status of the session
       sessionStore.saveSession(socket.sessionID, {
+        id: socket.id,
         userID: socket.userID,
         username: socket.username,
         connected: false,
       });
       console.log(
-        "user disconnected: ",
+        "user disconnected:",
         sessionStore.findSession(socket.sessionID).username
       );
     }
@@ -95,7 +104,7 @@ app.get("/hello", (_, res) => {
 });
 
 const server = httpServer.listen(3000, () => {
-  sessionStore.restoreSessions();
+  // sessionStore.restoreSessions();
   console.log("server listening at http://localhost:3000");
 });
 
