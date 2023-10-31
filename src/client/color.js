@@ -11,7 +11,6 @@ const colors = new Map([
 ]);
 
 socket.on("status", (status) => {
-  console.log(status);
   if (!status || status.id === "3") return;
 
   const id = status.id;
