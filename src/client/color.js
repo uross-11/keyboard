@@ -1,13 +1,7 @@
 import { io } from "socket.io-client";
 
-const socket = io({ auth: { sessionID: import.meta.env.VITE_ID } });
-
-socket.on("connect", () => {
-  // console.log("connected");
-});
-
-socket.on("private", function (msg) {
-  console.log(msg);
+export const socket = io({
+  auth: { sessionID: import.meta.env.VITE_ID },
 });
 
 const colors = new Map([
@@ -16,30 +10,45 @@ const colors = new Map([
   ["blue", "bg-blue-800"],
 ]);
 
-export const kbd1 = { color: colors.get("blue"), connected: true };
-export const kbd2 = { color: colors.get("red"), connected: true };
+socket.on("status", (status) => {
+  console.log(status);
+  if (!status || status.id === "3") return;
 
-export function setColor(id) {
+  const id = status.id;
+  const connected = status.connected;
+
+  document
+    .getElementById(`card-${id}`)
+    .classList.toggle("opacity-30", !connected);
+
+  document.getElementById(`color-${id}`).className = `${colors.get(
+    status.color,
+  )} inset-[-7px] absolute -z-10 blur-sm transition duration-300`;
+
+  const pingOuterClasses =
+    " absolute inline-flex h-full w-full rounded-full opacity-75";
+  document.getElementById(`pingOuter-${status.id}`).classList = status.connected
+    ? "animate-ping bg-green-500" + pingOuterClasses
+    : "bg-zinc-500" + pingOuterClasses;
+
+  const pingInnerClasses = " relative inline-flex rounded-full h-2 w-2";
+
+  document.getElementById(`pingInner-${status.id}`).classList = status.connected
+    ? "bg-green-500" + pingInnerClasses
+    : "bg-zinc-500" + pingInnerClasses;
+});
+
+export function updateColor(id) {
   const button = document.getElementById(id);
+
   button.addEventListener("click", () => {
-    socket.emit("color", id);
     const index = id.split("-")[1];
     const color = id.split("-")[0];
 
-    if (index === "1") {
-      kbd1.color = colors.get(color);
-      document.getElementById("color-1").className = `${colors.get(
-        color
-      )} inset-[-7px] absolute -z-10 blur-sm`;
-      console.log(kbd1);
-    }
+    document.getElementById(`color-${index}`).className = `${colors.get(
+      color,
+    )} inset-[-7px] absolute -z-10 blur-sm transition duration-[4000ms]`;
 
-    if (index === "2") {
-      kbd2.color = colors.get(color);
-      document.getElementById("color-2").className = `${colors.get(
-        color
-      )} inset-[-7px] absolute -z-10 blur-sm`;
-      console.log(kbd2);
-    }
+    socket.emit("color", id);
   });
 }

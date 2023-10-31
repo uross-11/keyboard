@@ -1,111 +1,96 @@
-import "dotenv/config.js";
-import express from "express";
-import crypto from "crypto";
-import ViteExpress from "vite-express";
-import { createServer } from "http";
-import { SessionStore } from "./sessionStore.js";
-import { Server } from "socket.io";
+import { io } from "./server.js";
+import { findUser, updateUserStatus, updateUserColor } from "./queries.js";
 
-const app = express();
-const httpServer = createServer(app);
-const io = new Server(httpServer);
-const sessionStore = new SessionStore();
+export const keyboards = new Map([
+  [
+    "1",
+    {
+      color: "blue",
+      connected: false,
+    },
+  ],
+  [
+    "2",
+    {
+      color: "red",
+      connected: false,
+    },
+  ],
+  [
+    "3",
+    {
+      color: "vite",
+      connected: false,
+    },
+  ],
+]);
 
-const keyboard1 = process.env.KEYBOARD_1_ID;
-const keyboard2 = process.env.KEYBOARD_2_ID;
+io.use(async (socket, next) => {
+  // if (socket.handshake.headers.host === "localhost:3000") return next();
 
-// const id = ["red-1", "green-1", "blue-1", "red-2", "green-2", "blue-2"];
+  const { sessionID } = socket.handshake.auth;
+  if (!sessionID) return next(new Error("Missing sessionID."));
 
-const randomId = () => crypto.randomBytes(8).toString("hex");
-
-io.use((socket, next) => {
-  const sessionID = socket.handshake.auth.sessionID;
-  if (sessionID) {
-    // find existing session
-    const session = sessionStore.findSession(sessionID);
-    if (session) {
-      socket.sessionID = sessionID;
-      socket.userID = session.userID;
-      socket.username = session.username;
-      return next();
-    }
+  const user = await findUser(sessionID, next);
+  if (!user || !user.id || !user.color)
+    return next(new Error("Keyboard not found."));
+  if (user.id) {
+    socket.keyboardID = user.id;
+    socket.color = user.color;
+    return next();
   }
-  const username = socket.handshake.auth.username;
-  if (!username) {
-    return next(new Error("invalid username"));
-  }
-  // create new session
-  socket.sessionID = randomId();
-  socket.userID = randomId();
-  socket.username = username;
+
   next();
 });
 
-io.on("connection", (socket) => {
-  sessionStore.saveSession(socket.sessionID, {
-    id: socket.id,
-    userID: socket.userID,
-    username: socket.username,
-    connected: true,
-  });
+io.on("connection", async (socket) => {
+  const id = socket.keyboardID;
+  const allSockets = await io.fetchSockets();
 
-  console.log(
-    "user connected:",
-    sessionStore.findSession(socket.sessionID).username
-  );
+  const { connected } = await updateUserStatus(id, true);
 
-  // emit session details
-  socket.emit("session", {
-    sessionID: socket.sessionID,
-    userID: socket.userID,
-  });
+  if (connected === true) {
+    socket.join(id);
+    console.log("user connected:", id);
 
-  socket.on("color", (payload) => {
-    const index = payload.split("-")[1];
+    keyboards.set(id, { color: socket.color, connected: true });
+
+    for (const s of allSockets) {
+      for (const key of keyboards.keys()) {
+        s.emit("status", { ...keyboards.get(key), id: key });
+      }
+    }
+  }
+
+  socket.on("color", async (payload) => {
+    const targetId = payload.split("-")[1];
     const color = payload.split("-")[0];
 
-    if (index === "1") {
-      io.to(sessionStore.findSession(keyboard1).id).emit("color", color);
-    }
+    const { color: updatedColor } = await updateUserColor(targetId, color);
 
-    if (index === "2") {
-      io.to(sessionStore.findSession(keyboard2).id).emit("color", color);
+    if (updatedColor) {
+      io.to(targetId).emit("color", updatedColor);
+      keyboards.set(targetId, {
+        ...keyboards.get(targetId),
+        color: updatedColor,
+      });
     }
   });
-
-  // socket.on("tick", (cb) => {
-  //   socket.emit("red");
-  //   cb();
-  // });
 
   socket.on("disconnect", async () => {
-    const matchingSockets = await io.in(socket.userID).allSockets();
-    const isDisconnected = matchingSockets.size === 0;
-    if (isDisconnected) {
-      // notify other users
-      socket.broadcast.emit("user disconnected", socket.userID);
-      // update the connection status of the session
-      sessionStore.saveSession(socket.sessionID, {
-        id: socket.id,
-        userID: socket.userID,
-        username: socket.username,
-        connected: false,
-      });
-      console.log(
-        "user disconnected:",
-        sessionStore.findSession(socket.sessionID).username
-      );
+    const { connected } = await updateUserStatus(id, false);
+
+    if (connected === false) {
+      socket.leave(id);
+      console.log("user disconnected:", id);
+
+      keyboards.set(id, { ...keyboards.get(id), connected: false });
+
+      for (const s of allSockets) {
+        for (const key of keyboards.keys()) {
+          s.emit("status", { ...keyboards.get(key), id: key });
+        }
+      }
     }
   });
 });
-
-app.get("/hello", (_, res) => {
-  res.send("Hello Vite!");
-});
-
-const server = httpServer.listen(3000, () => {
-  // sessionStore.restoreSessions();
-  console.log("server listening at http://localhost:3000");
-});
-
-ViteExpress.bind(app, server);
