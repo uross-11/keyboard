@@ -31,10 +31,13 @@ io.use(async (socket, next) => {
   const { sessionID } = socket.handshake.auth;
   if (!sessionID) return next(new Error("Missing sessionID."));
 
+  console.log(sessionID);
+
   const user = await findUser(sessionID, next);
   if (!user || !user.id || !user.color)
     return next(new Error("Keyboard not found."));
   if (user.id) {
+    console.log(user);
     socket.keyboardID = user.id;
     socket.color = user.color;
     return next();
@@ -51,7 +54,9 @@ io.on("connection", async (socket) => {
 
   if (connected === true) {
     socket.join(id);
-    console.log("user connected:", id);
+    if (id !== 3) {
+      console.log("user connected:", id);
+    }
 
     keyboards.set(id, { color: socket.color, connected: true });
 
@@ -82,7 +87,9 @@ io.on("connection", async (socket) => {
 
     if (connected === false) {
       socket.leave(id);
-      console.log("user disconnected:", id);
+      if (id !== 3) {
+        console.log("user disconnected:", id);
+      }
 
       keyboards.set(id, { ...keyboards.get(id), connected: false });
 
