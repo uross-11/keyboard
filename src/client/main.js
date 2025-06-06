@@ -30,7 +30,6 @@ socket.on("status", (status) => {
   const id = status.id;
   const connected = status.connected;
 
-
   if (connected) {
     const buttons = ids
       .filter((i) => Number(i.split("-")[1]) === id)
@@ -39,7 +38,6 @@ socket.on("status", (status) => {
       button.disabled = false;
     });
   }
-
   document
     .getElementById(`card-${id}`)
     .classList.toggle("opacity-30", !connected);
