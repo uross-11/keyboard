@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS color_changes;
+DROP TABLE IF EXISTS device_logs;
+DROP TABLE IF EXISTS devices;

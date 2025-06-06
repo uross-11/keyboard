@@ -1,0 +1,21 @@
+CREATE TABLE devices (
+  id SERIAL PRIMARY KEY,
+  color TEXT,
+  connected BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE device_logs (
+  id SERIAL PRIMARY KEY,
+  device_id INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  event TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE color_changes (
+  id SERIAL PRIMARY KEY,
+  device_id INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  color TEXT NOT NULL,
+  changed_at TIMESTAMPTZ DEFAULT NOW()
+);
